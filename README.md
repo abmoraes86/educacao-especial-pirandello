@@ -9,7 +9,7 @@ Plataforma estática em português, com banco e autenticação Supabase. Um admi
 - Estrutura preliminar de PEI substituída; configuração da escola preservada em `ee_private.previous_school_settings`.
 - Conta antiga removida por solicitação do responsável. Nenhum administrador novo foi definido.
 - Cinco modelos instalados. Nenhum estudante ou documento real cadastrado.
-- Publicação no GitHub Pages pendente da criação/indicação do repositório.
+- Repositório: https://github.com/abmoraes86/educacao-especial-pirandello. Publicação depende de habilitar GitHub Pages nas configurações.
 - Testes automatizados de banco e PDF executados. Não houve teste de interface em navegador nem login real com nova conta.
 
 ## Modelos
@@ -26,7 +26,7 @@ O documento completo de 99 páginas foi analisado. Os exemplos fictícios de pre
 
 ## Ativação no projeto já preparado
 
-1. Criar o repositório GitHub destinado a esta plataforma e enviar o conteúdo deste pacote, incluindo `public/assets`, os arquivos de dependências e `.github/workflows/pages.yml`.
+1. A aplicação já está no repositório `abmoraes86/educacao-especial-pirandello`.
 2. Em Settings → Pages, escolher **GitHub Actions** como origem. O fluxo compila, testa e publica o conteúdo de `dist`.
 3. No Supabase, criar a nova conta em Authentication → Users com o e-mail escolhido e uma senha definida fora do chat e do repositório.
 4. Autorizar exatamente essa conta no SQL Editor, usando o procedimento em `docs/ativacao-administrador.sql`. O script exige e-mail confirmado e impede dois administradores.
@@ -83,7 +83,7 @@ O cabeçalho usa a imagem original fornecida. Os textos são organizados em quad
 
 ## Limites desta entrega
 
-O site ainda depende de um repositório e de uma conta administrativa nova para ativação. Login real, envio de link a um professor, teste em celular e exportação a partir do site publicado são a verificação de aceitação após a implantação.
+O site ainda depende da habilitação do GitHub Pages e de uma conta administrativa nova para ativação. Login real, envio de link a um professor, teste em celular e exportação a partir do site publicado são a verificação de aceitação após a implantação.
 
 A aplicação não substitui SED, registro oficial, validação pedagógica ou coleta de assinaturas. Backups operacionais do Supabase e um procedimento de restauração precisam ser definidos antes do uso regular; histórico dentro do mesmo banco não substitui backup. Consulte os recursos disponíveis no plano do projeto, sem presumir retenção automática.
 
