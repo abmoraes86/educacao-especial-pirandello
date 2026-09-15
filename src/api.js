@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-export function configured(c){return Boolean(c?.supabaseUrl=== 'https://ioeuwiqruitxmwnhbqlb.supabase.co' && /^(sb_publishable_|eyJ)/.test(c?.supabasePublishableKey||''));}
+export function configured(c){return Boolean(c?.supabaseUrl=== 'https://rijpfddlkkmrugztulhb.supabase.co' && /^(sb_publishable_|eyJ)/.test(c?.supabasePublishableKey||''));}
 export function createApi(config){
  const key=config.supabasePublishableKey;
  if(key.startsWith('sb_secret_')) throw Error('Não use chave secreta no navegador.');
