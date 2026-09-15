@@ -2,7 +2,17 @@
 
 Plataforma estática em português, com banco e autenticação Supabase. Um administrador organiza os documentos; profissionais contribuem por links com acesso limitado às áreas escolhidas.
 
-## Situação em 11/09/2026
+## Situação em 15/09/2026 — projeto atual
+
+- Supabase atual: `rijpfddlkkmrugztulhb`; URL e chave pública configuradas, incluindo a validação em `src/api.js`.
+- Instaladas as migrações `escola_base_inicial` e `escola_modelos_iniciais`, a partir dos arquivos 001/002 deste repositório.
+- Dez tabelas no schema `ee_private`, todas com RLS e acesso direto do cliente bloqueado; cinco definições de modelos instaladas.
+- Nenhum aluno e nenhum administrador cadastrado. Próxima etapa: ativação da conta individual do coordenador.
+- Onze testes locais de banco passaram; cinco verificações de bloqueio de acesso passaram no projeto remoto. Security Advisor sem alertas nessa verificação.
+- A base existente ainda usa convites por link. Login individual dos professores e adequação integral ao novo briefing continuam pendentes; esta instalação não encerra esses requisitos.
+- Não executar novamente 001/002 neste projeto já instalado. As instruções abaixo de 11/09 são histórico do projeto anterior.
+
+## Histórico em 11/09/2026
 
 - Aplicação implementada e compilada.
 - Banco instalado no projeto `ioeuwiqruitxmwnhbqlb`.
