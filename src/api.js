@@ -4,10 +4,17 @@ export function createApi(config){
  const key=config.supabasePublishableKey;
  if(key.startsWith('sb_secret_')) throw Error('Não use chave secreta no navegador.');
  if(key.startsWith('eyJ')){try {if(JSON.parse(atob(key.split('.')[1])).role!=='anon') throw Error('role');} catch{throw Error('Use apenas a chave publicável ou anon do projeto.');}}
- const client=createClient(config.supabaseUrl,key,{auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:false}});
+ const client=createClient(config.supabaseUrl,key,{auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:true}});
  const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error) throw Error(error.message);return data;};
  return {
   async login(email,password){const {error}=await client.auth.signInWithPassword({email,password});if(error) throw Error('Não foi possível entrar. Confira o e-mail e a senha.');return rpc('ee_admin',{p_action:'list'});},
+  async requestPasswordReset(email){
+   const redirectTo=new URL(location.pathname,location.origin).href;
+   const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo});
+   if(error) throw Error('Não foi possível enviar a recuperação de senha.');
+  },
+  async updatePassword(password){const {error}=await client.auth.updateUser({password});if(error) throw Error('Não foi possível salvar a nova senha.');},
+  onAuth:fn=>client.auth.onAuthStateChange((event,session)=>fn(event,session)),
   async logout(){const {error}=await client.auth.signOut({scope:'local'});if(error) throw error;},
   admin:(action,data={})=>rpc('ee_admin',{p_action:action,p_data:data}),
   openInvite:token=>rpc('ee_open_invite',{p_token:token}),
