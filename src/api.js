@@ -7,10 +7,11 @@ export function createApi(config){
  const client=createClient(config.supabaseUrl,key,{auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:true}});
  const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error) throw Error(error.message);return data;};
  return {
-  async login(email,password){const {error}=await client.auth.signInWithPassword({email,password});if(error) throw Error('Não foi possível entrar. Confira o e-mail e a senha.');return rpc('ee_admin',{p_action:'list'});},
+  async login(email,password){const {error}=await client.auth.signInWithPassword({email,password});if(error?.code==='email_address_invalid')throw Error('Este endereço de e-mail não é aceito pelo serviço de login. Use outro e-mail.');if(error) throw Error('Não foi possível entrar. Confira o e-mail e a senha.');return rpc('ee_admin',{p_action:'list'});},
   async requestPasswordReset(email){
    const redirectTo=new URL(location.pathname,location.origin).href;
    const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo});
+   if(error?.code==='email_address_invalid')throw Error('Este endereço de e-mail não é aceito pelo serviço de login. Use outro e-mail.');
    if(error) throw Error('Não foi possível enviar a recuperação de senha.');
   },
   async updatePassword(password){const {error}=await client.auth.updateUser({password});if(error) throw Error('Não foi possível salvar a nova senha.');},
