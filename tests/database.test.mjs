@@ -86,5 +86,38 @@ test('Autorização e ciclo completo dos documentos em PostgreSQL local',async t
  await t.test('apenas um administrador pode ser cadastrado',async()=>{
    await as('postgres');await assert.rejects(()=>db.query('insert into ee_private.administrator(user_id) values($1)',[other]),/duplicate key/);
  });
+ await db.exec(await readFile('supabase/migrations/20260917132158_delete_student_documents.sql','utf8'));
+ await t.test('exclusão exige admin, confirmação e contagem atual',async()=>{
+   const payload={id:student.id,name:student.name,documents_count:5,confirmation:'EXCLUIR'};
+   await as('anon');await assert.rejects(()=>admin('delete_student',payload),/permission denied/);
+   await as('authenticated',other);await assert.rejects(()=>admin('delete_student',payload),/exclusivo/);
+   await as('authenticated',uid);
+   await assert.rejects(()=>admin('delete_student',{...payload,confirmation:''}),/Digite EXCLUIR/);
+   await assert.rejects(()=>admin('delete_student',{...payload,name:'Outro nome'}),/Cadastro alterado/);
+   await assert.rejects(()=>admin('delete_student',{...payload,documents_count:4}),/quantidade/);
+   assert.equal((await admin('list')).documents.length,5);
+ });
+ await t.test('exclusão remove dependências e preserva outro aluno',async()=>{
+   await as('authenticated',uid);
+   const kept=await admin('create_student',{name:'Preservado',grade:'1 A'});
+   const keptDoc=await admin('create_document',{student_id:kept.id,kind:'estudo',year:2026});
+   await admin('create_invite',{id,label:'Convite ativo',token:'c'.repeat(64),scopes:['curriculo'],expires_at:new Date(Date.now()+3600000).toISOString()});
+   await as('anon');await open('c'.repeat(64));
+   await as('authenticated',uid);
+   assert.deepEqual(await admin('delete_student',{id:student.id,name:student.name,documents_count:5,confirmation:'EXCLUIR'}),{deleted:true,documents_count:5});
+   const listing=await admin('list');
+   assert.equal(listing.students.length,1);assert.equal(listing.students[0].id,kept.id);
+   assert.equal(listing.documents.length,1);assert.equal(listing.documents[0].id,keptDoc.document.id);
+   await assert.rejects(()=>admin('get',{id}),/não encontrado/);
+   await as('anon');await assert.rejects(()=>open('c'.repeat(64)),/inválido/);
+   await as('postgres');
+   for(const table of ['sections','invitations','revisions','editions','audit']){
+     assert.equal(Number((await db.query('select count(*) as n from ee_private.'+table+' where document_id=$1',[id])).rows[0].n),0);
+   }
+   await as('authenticated',uid);
+   const empty=await admin('create_student',{name:'Sem documentos',grade:'1 A'});
+   await admin('delete_student',{id:empty.id,name:empty.name,documents_count:0,confirmation:'EXCLUIR'});
+   await assert.rejects(()=>admin('delete_student',{id:empty.id,name:empty.name,documents_count:0,confirmation:'EXCLUIR'}),/não encontrado/);
+ });
  await db.close();
 });
