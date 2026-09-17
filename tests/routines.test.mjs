@@ -1,0 +1,28 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+const uid='00000000-0000-4000-a000-000000000001',other='00000000-0000-4000-a000-000000000002',secret='a'.repeat(64),second='b'.repeat(64);
+test('Rotinas: isolamento, horários, revisão e conflitos',async t=>{
+ const db=new PGlite();
+ await db.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); insert into auth.users values ('${uid}'),('${other}'); create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;`);
+ await db.exec(await readFile('supabase/migrations/001_escola.sql','utf8'));
+ await db.exec(await readFile('supabase/migrations/20260917134049_teacher_routines.sql','utf8'));
+ await db.exec(`insert into ee_private.administrator(user_id) values('${uid}')`);
+ const as=async(role,id='')=>db.exec(`reset role;select set_config('request.jwt.claim.sub','${id}',false);set role ${role}`);
+ const rpc=async(action,data={},token=null)=>(await db.query('select public.ee_routines($1,$2::jsonb,$3) result',[action,JSON.stringify(data),token])).rows[0].result;
+ await t.test('anônimo e usuário comum não administram nem leem tabelas',async()=>{await as('anon');await assert.rejects(()=>rpc('list'),/exclusivo/);await assert.rejects(()=>db.query('select * from ee_private.routine_weeks'),/permission denied/);await as('authenticated',other);await assert.rejects(()=>rpc('list'),/exclusivo/);});
+ await as('authenticated',uid);
+ const slots=['07:00 às 07:50','07:50 às 08:40'];
+ await rpc('schedule',{effective:'2025-12-29',slots});
+ const one=await rpc('create_teacher',{name:'Professor A',class_name:'1º A',year:2026,token:secret});
+ const two=await rpc('create_teacher',{name:'Professor B',class_name:'1º B',year:2026,token:second});
+ const args={id:one.id,week:'2026-09-14',version:0,slots,content:{d0_reading:'Leitura inicial',d0_s0_subject:'Arte',d0_s0_content:'Trabalho com cores.'},status:'submitted'};
+ await t.test('link tem identidade própria e não aceita acesso a outro professor',async()=>{await as('anon');assert.equal((await rpc('identity',{},secret)).id,one.id);assert.equal((await rpc('get',{id:two.id,week:args.week},secret)).teacher.id,one.id);await assert.rejects(()=>rpc('list',{},secret),/semana/);await assert.rejects(()=>rpc('identity',{},'c'.repeat(64)),/inválido/);await assert.rejects(()=>rpc('schedule',{effective:args.week,slots},secret),/semana/);});
+ await t.test('valida datas e conteúdo e salva sem expor hashes',async()=>{await assert.rejects(()=>rpc('get',{week:'2026-09-15'},secret),/semana/);await assert.rejects(()=>rpc('get',{week:'2027-09-13'},secret),/ano/);await assert.rejects(()=>rpc('save',{...args,content:{evil:'x'}},secret),/Campo inválido/);await assert.rejects(()=>rpc('save',{...args,content:{d0_s2_content:'x'}},secret),/inexistente/);const saved=await rpc('save',args,secret);assert.equal(saved.version,1);const w=await rpc('get',args,secret);assert.equal(w.status,'submitted');assert.equal(w.content.d0_reading,'Leitura inicial');assert.ok(!JSON.stringify(w).includes('token_hash'));});
+ await t.test('professor não avalia e versão antiga nunca sobrescreve',async()=>{await assert.rejects(()=>rpc('review',{...args,version:1,body:'Aprovar',status:'approved'},secret),/coordenação/);await assert.rejects(()=>rpc('save',args,secret),/CONFLICT/);});
+ await t.test('devolutiva visível e alteração posterior remove aprovação',async()=>{await as('authenticated',uid);await rpc('review',{...args,version:1,status:'approved',body:'Planejamento adequado.'});await as('anon');const w=await rpc('get',args,secret);assert.equal(w.comments[0].body,'Planejamento adequado.');assert.equal(w.status,'approved');await assert.rejects(()=>rpc('save',{...args,version:1},secret),/CONFLICT/);await rpc('save',{...args,version:2,status:'draft'},secret);assert.equal((await rpc('get',args,secret)).status,'draft');});
+ await t.test('novos horários chegam a todos e não alteram semanas já salvas',async()=>{await as('authenticated',uid);const changed=['08:00 às 08:50'];await rpc('schedule',{effective:'2026-09-14',slots:changed});assert.deepEqual((await rpc('get',args)).slots,slots);assert.deepEqual((await rpc('get',{...args,id:two.id})).slots,changed);assert.deepEqual((await rpc('get',{...args,week:'2026-09-21'})).slots,changed);await as('anon');await assert.rejects(()=>rpc('save',{...args,week:'2026-09-21'},secret),/horários mudaram/);});
+ await t.test('revogação bloqueia leitura e escrita sem excluir semanas',async()=>{await as('authenticated',uid);await rpc('revoke',{id:one.id});await as('anon');await assert.rejects(()=>rpc('get',args,secret),/revogado/);await assert.rejects(()=>rpc('save',{...args,version:3},secret),/revogado/);await as('authenticated',uid);assert.equal((await rpc('get',args)).content.d0_reading,'Leitura inicial');assert.equal((await rpc('get',{...args,id:two.id})).version,0);const rotated='d'.repeat(64);await rpc('rotate',{id:one.id,token:rotated});await as('anon');assert.equal((await rpc('get',args,rotated)).version,3);});
+ await db.close();
+});
